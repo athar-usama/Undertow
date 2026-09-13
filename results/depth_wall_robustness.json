@@ -1,5 +1,5 @@
 {
-  "description": "Every synthetic training accuracy number found during the pilot phase, before the final grid (scripts/run_grid.py) was scoped down to only the cells that converge. Kept for an honest record of what was tried and what didn't work, not just what did.",
+  "description": "Robustness checks on the primary task's t_hops=2 zero-CoT wall (a spread of architectures and optimization settings, all at chance), plus the full accuracy record for every control-task cell and every primary-task CoT-assisted cell. scripts/run_grid.py checkpoints and patches only the cells that converge; the ones that don't are recorded here and reported honestly in the README rather than trained further.",
   "primary_zero_cot_depth_wall": [
     {"t_hops": 1, "n_layers": 6, "d_model": 48, "n_steps": 3000, "accuracy": 1.000},
     {"t_hops": 2, "n_layers": 6, "d_model": 48, "n_steps": 3000, "accuracy": 0.033},

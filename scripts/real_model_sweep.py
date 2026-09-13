@@ -1,12 +1,10 @@
 """Real-model phase: Qwen2.5-0.5B-Instruct on chained-addition word problems, zero-CoT,
-k in {2,3,4}. A pilot check found the model scores 0/20 zero-shot on a "working modulo
-m" phrasing at any modulus tried, even at k=2 -- the modulus framing itself, not
-multi-step composition, was the obstacle, and a correctness-gated method has nothing to
-analyze when nothing is ever answered correctly. Plain addition is answered correctly
-often enough to supply real examples. This script oversamples attempts per k (a fixed
-budget, not "keep trying until enough succeed") and reports the yield honestly.
-Checkpointed to results/real_model_raw.jsonl so the sweep can be interrupted and
-resumed on this shared machine.
+k in {2,3,4}. Plain addition rather than modular arithmetic keeps the task within a
+0.5B model's reach while still requiring genuine multi-step composition, and a
+correctness-gated method needs some correct answers to have anything to analyze. This
+script uses a fixed attempt budget per k (not "keep trying until enough succeed") and
+reports the yield honestly. Checkpointed to results/real_model_raw.jsonl so the sweep
+can be interrupted and resumed on this shared machine.
 """
 
 from __future__ import annotations

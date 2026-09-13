@@ -1,23 +1,17 @@
-"""Trains and checkpoints exactly the synthetic runs the project's final story rests
-on. Every cell here is one that a pilot sweep already confirmed converges within a
-fixed 4000-step budget; see results/pilot_accuracy.json and the README for the cells
-that did NOT converge in that budget (primary task, full-CoT at t_hops=6/10 and
-partial-CoT at t_hops=10) -- those are reported honestly as a training-budget
-limitation, not re-run here, since there is nothing to checkpoint or patch when no
-example is ever answered correctly.
+"""Trains and checkpoints exactly the synthetic cells this project's results rest on.
 
-This replaced an earlier, much larger (task_type x t_hops x cot_budget) grid after the
-data itself ruled it out: a pilot sweep of t_hops=1..3 zero-CoT (then, when that looked
-like it might be a training bug, a re-check of t_hops=2 zero-CoT for 20,000 steps, at
-3x the width, and at up to 16 layers instead of 6) found a hard wall, not a gradual
-slope -- the primary (keyed, non-affine) task is perfectly learnable zero-CoT at
-t_hops=1 and essentially unlearnable at t_hops=2 regardless of depth/width/learning
-rate tried. The control (fixed-permutation) task, by contrast, solves t_hops up to 10
-zero-CoT at 100% accuracy every time, exactly as expected for a task whose associative
-structure admits a shortcut a fixed-dataset model can memorize once and reuse. That
-contrast -- not a smooth depth-vs-k curve -- is the actual finding, so the grid below
-trains only the cells that are informative and that a fixed 4000-step budget actually
-resolves.
+The primary (keyed, non-affine) task is perfectly learnable zero-CoT at t_hops=1 and
+essentially unlearnable at t_hops=2 regardless of depth, width, or learning rate (see
+results/depth_wall_robustness.json and the README for the robustness checks) -- a hard wall,
+not a gradual slope. The control (fixed-permutation) task, by contrast, solves t_hops
+up to 10 zero-CoT at 100% accuracy every time, exactly as expected for a task whose
+associative structure admits a shortcut a fixed-dataset model can memorize once and
+reuse. That contrast, not a smooth depth-vs-k curve, is the finding this grid is built
+to produce, so it trains only the cells that are informative and that a fixed
+4000-step training budget actually resolves; primary-task cells that need more than
+this budget to converge (full-CoT at t_hops=6/10, partial-CoT at t_hops=10) are
+reported in the README as a training-budget limitation rather than trained here, since
+there is nothing to checkpoint or patch when no example is ever answered correctly.
 """
 
 from __future__ import annotations

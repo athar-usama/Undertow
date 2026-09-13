@@ -25,11 +25,11 @@ That number needs to earn trust before it means anything. Most of this project i
 | Faithfulness as the bar a circuit must clear | Redwood Research's causal-scrubbing line of work | The gate that gets checked before any depth number is reported |
 | Fixed-depth transformers need CoT for unbounded serial composition | Merrill & Sabharwal's work on transformer expressivity with and without chain-of-thought | The theoretical reason to expect a depth ceiling at all, and the reason the control task below was built the way it was |
 
-None of that is new. What's new is narrower: turning a patching-derived graph's **depth**, not its size, into the object of interest; a calibration protocol that checks, on synthetic tasks with a known right answer, whether that depth number tracks genuine hidden computation or just counts residual-stream pass-through; and a paired task design that turns a real failure mode of the naive version of this idea into evidence instead of a footnote.
+None of that is new. What's new is narrower: turning a patching-derived graph's **depth**, not its size, into the object of interest; a calibration protocol that checks, on synthetic tasks with a known right answer, whether that depth number tracks genuine hidden computation or just counts residual-stream pass-through; and a paired task design that demonstrates a real associative-shortcut failure mode directly, as causal evidence, rather than leaving it as an assumption.
 
-## The trapdoor a naive version of this falls through
+## The associative trap a depth measurement has to avoid
 
-The first draft of this project trained tiny transformers to iterate a single fixed function (a permutation, a linear map) some number of times, and treated that number as "true serial depth." It doesn't survive contact with itself: composing the *same* fixed function is associative, so a model that sees that function throughout training can memorize `S`, `S∘S`, `S∘S∘S∘S`, ... as a fixed, small set of shortcuts and answer any number of iterations in a bounded number of steps. That is not a hypothetical: this project's own control task below does exactly that, on purpose, at 100% accuracy, out to ten iterations.
+Iterating a single fixed function k times looks like an obvious way to build a task with a known serial depth of k. It is a trap: composing the *same* fixed function is associative, so a model that sees that function throughout training can memorize `S`, `S∘S`, `S∘S∘S∘S`, ... as a fixed, small set of shortcuts, and answer any number of iterations in a bounded number of steps without ever doing k real sequential steps. That is not a hypothetical: this project's own control task below demonstrates exactly that shortcut, on purpose, at 100% accuracy, out to ten iterations.
 
 The fix is to close off the shortcut at the level of the data, not the architecture: give the model a *different*, input-supplied perturbation at every step, so there is no fixed composed function to memorize across training examples.
 
@@ -73,7 +73,7 @@ Six six-layer transformers were trained on the control task at k = 1, 2, 4, 6, 8
 <p align="center"><img src="assets/heatmap_control_k10.png" width="480"></p>
 <p align="center"><sub>Same k=10 example, every (layer, position) effect size at once. Almost all of it is dead outside two columns.</sub></p>
 
-The primary task tells a sharper story, and it wasn't the one this project set out to tell. A pilot swept t_hops = 1, 2, 3 zero-CoT and found t_hops=1 perfectly learnable (100%) and t_hops=2 stuck at chance, so a battery of fixes was tried before accepting that as real:
+The primary task shows a sharp capability wall rather than a gradual slope: t_hops=1 is perfectly learnable zero-CoT (100%), and t_hops=2 sits at chance. To confirm the wall is real rather than an artifact of one particular configuration, the same t_hops=2 zero-CoT condition was tested across a spread of architectural and optimization settings:
 
 | What was changed | Result at t_hops=2, zero-CoT |
 |---|---|
@@ -103,7 +103,7 @@ Every cell that *did* converge shows causal depth tracking **required silent dep
 
 ## One real model, interrogated the same way
 
-Qwen2.5-0.5B-Instruct, unmodified, on chained-addition word problems (chosen after a modular-arithmetic phrasing scored 0/20 regardless of difficulty: the modulus framing itself was the obstacle, not the multi-step composition, so it was dropped rather than forced).
+Qwen2.5-0.5B-Instruct, unmodified, on chained-addition word problems: plain addition rather than modular arithmetic, so the only difficulty in the task is the multi-step composition this project measures, not a second, unrelated difficulty from the modular reduction itself.
 
 <p align="center"><img src="assets/real_model_opacity_gap.png" width="460"></p>
 

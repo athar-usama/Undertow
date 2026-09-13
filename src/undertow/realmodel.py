@@ -102,12 +102,10 @@ def make_chain_prompt(tokenizer, x0: int, coeffs: list[int]) -> ChainPrompt:
     """A chained addition word problem: start from x0, add each of `coeffs` in sequence,
     ask only for the final value (no CoT) -- the zero-CoT, real-model analogue of the
     synthetic keyed substitution chain task. Plain addition rather than modular
-    arithmetic: a pilot check found Qwen2.5-0.5B-Instruct scores 0/20 zero-shot on a
-    "working modulo m" phrasing at any modulus tried (97, 20), even at k=2 -- the
-    modulus framing itself, not multi-step composition, was the obstacle. Plain
-    addition is answered correctly often enough (see README) to supply real examples
-    for the patching analysis; a model with zero correct answers has nothing for the
-    correctness-gated method to analyze in the first place."""
+    arithmetic keeps the task within a small instruction-tuned model's reach while still
+    requiring genuine multi-step composition, which is the quantity this method
+    measures; a correctness-gated method needs some correct answers to have anything to
+    analyze in the first place."""
     state = x0
     steps = []
     for c in coeffs:
