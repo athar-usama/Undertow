@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+runs/
+*.pt
+checkpoints/
+/weights/
+/data/
+.hf_cache/
+.pip-cache/
+
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# planning notes for this build: kept locally, not part of the published project
+PLAN.md
+METHOD.md
+linkedin_post.md
+notes/

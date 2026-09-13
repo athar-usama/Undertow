@@ -1,0 +1,30 @@
+{
+  "description": "Every synthetic training accuracy number found during the pilot phase, before the final grid (scripts/run_grid.py) was scoped down to only the cells that converge. Kept for an honest record of what was tried and what didn't work, not just what did.",
+  "primary_zero_cot_depth_wall": [
+    {"t_hops": 1, "n_layers": 6, "d_model": 48, "n_steps": 3000, "accuracy": 1.000},
+    {"t_hops": 2, "n_layers": 6, "d_model": 48, "n_steps": 3000, "accuracy": 0.033},
+    {"t_hops": 3, "n_layers": 6, "d_model": 48, "n_steps": 3000, "accuracy": 0.037},
+    {"t_hops": 2, "n_layers": 6, "d_model": 48, "n_steps": 20000, "accuracy": 0.037, "note": "20k steps, 5x the grid budget, does not help"},
+    {"t_hops": 2, "n_layers": 6, "d_model": 48, "n_steps": 4000, "m": 8, "accuracy": 0.146, "chance": 0.125, "note": "smaller state space does not help"},
+    {"t_hops": 2, "n_layers": 6, "d_model": 128, "n_steps": 4000, "accuracy": 0.025, "note": "wider model does not help"},
+    {"t_hops": 2, "n_layers": 6, "d_model": 48, "n_steps": 4000, "lr": 0.001, "accuracy": 0.041, "note": "3x learning rate does not help"},
+    {"t_hops": 2, "n_layers": 12, "d_model": 48, "n_steps": 4000, "accuracy": 0.045, "note": "2x depth does not help"},
+    {"t_hops": 2, "n_layers": 16, "d_model": 48, "n_steps": 4000, "accuracy": 0.037, "note": "2.7x depth does not help"}
+  ],
+  "control_zero_cot_all_succeed": [
+    {"t_hops": 1, "accuracy": 1.000},
+    {"t_hops": 2, "accuracy": 1.000},
+    {"t_hops": 4, "accuracy": 1.000},
+    {"t_hops": 6, "accuracy": 1.000},
+    {"t_hops": 8, "accuracy": 1.000},
+    {"t_hops": 10, "accuracy": 1.000}
+  ],
+  "primary_with_cot_at_4000_steps": [
+    {"t_hops": 2, "cot_budget": "full", "accuracy": 1.000},
+    {"t_hops": 2, "cot_budget": "partial", "accuracy": 1.000},
+    {"t_hops": 6, "cot_budget": "full", "accuracy": 0.033, "note": "did not converge in 4000 steps; more supervised positions per sequence than partial-CoT at the same k"},
+    {"t_hops": 6, "cot_budget": "partial", "accuracy": 1.000},
+    {"t_hops": 10, "cot_budget": "full", "accuracy": 0.020, "note": "did not converge in 4000 steps"},
+    {"t_hops": 10, "cot_budget": "partial", "accuracy": 0.037, "note": "did not converge in 4000 steps"}
+  ]
+}

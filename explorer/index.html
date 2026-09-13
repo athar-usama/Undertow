@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Undertow circuit explorer</title>
+<style>
+  :root {
+    --bg: #0b0e13;
+    --panel: #12161d;
+    --line: #232935;
+    --text: #e8ecf1;
+    --muted: #8a97a6;
+    --accent: #d9534f;
+    --accent-soft: #5b7c99;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    min-width: 220px;
+  }
+  .controls label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  select, input[type=range] { width: 100%; }
+  select {
+    background: #1a2029; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; font-size: 13px;
+  }
+  .stat { font-size: 13px; margin-top: 14px; line-height: 1.6; }
+  .stat b { color: var(--text); }
+  .canvas-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    flex: 1;
+    min-width: 480px;
+    overflow-x: auto;
+  }
+  svg { display: block; }
+  .tok { font-size: 10px; fill: var(--muted); }
+  .node { stroke: #05070a; stroke-width: 1.5px; }
+  .node.chain { fill: var(--accent); }
+  .node.off { fill: var(--accent-soft); }
+  .edge { stroke: var(--line); stroke-width: 1.4px; fill: none; }
+  .edge.chain { stroke: var(--accent); stroke-width: 2.6px; }
+  footer { margin-top: 18px; font-size: 12px; color: var(--muted); }
+  footer a { color: var(--accent-soft); }
+</style>
+</head>
+<body>
+<h1>Undertow &mdash; discovered-circuit explorer</h1>
+<p class="sub">Every necessary (layer, token) site found by activation patching, for a handful of representative synthetic examples. The highlighted chain is the longest necessary dependency path (MNPC-depth).</p>
+
+<div class="layout">
+  <div class="controls">
+    <label for="family">Task family</label>
+    <select id="family">
+      <option value="control">control (associative shortcut)</option>
+      <option value="primary">primary (non-affine, keyed)</option>
+    </select>
+
+    <label for="cell">Example</label>
+    <select id="cell"></select>
+
+    <div class="stat" id="stat"></div>
+  </div>
+
+  <div class="canvas-wrap">
+    <svg id="canvas" width="900" height="420"></svg>
+  </div>
+</div>
+
+<footer>Precomputed offline from the checkpoints in <code>results/checkpoints/</code>; see <code>scripts/make_explorer_data.py</code>. No network calls, no server &mdash; this file is fully self-contained.</footer>
+
+<script>
+const DATA = {"control": {"1": {"seq_len": 4, "n_layers": 6, "nodes": [[0, 1], [1, 2], [2, 1], [1, 1], [4, 2], [2, 2], [3, 2], [5, 2]], "edges": [[[1, 1], [2, 1]], [[3, 2], [4, 2]], [[3, 2], [5, 2]], [[1, 2], [4, 2]], [[0, 1], [4, 2]], [[0, 1], [1, 2]], [[4, 2], [5, 2]], [[2, 2], [4, 2]], [[0, 1], [5, 2]], [[1, 2], [3, 2]], [[0, 1], [2, 1]], [[0, 1], [3, 2]], [[0, 1], [1, 1]], [[2, 2], [5, 2]], [[2, 2], [3, 2]], [[1, 2], [2, 2]], [[0, 1], [2, 2]]], "chain": [[0, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "25", "ANS", "15"]}, "2": {"seq_len": 4, "n_layers": 6, "nodes": [[0, 1], [1, 1], [4, 2], [2, 2], [3, 2], [5, 2]], "edges": [[[3, 2], [4, 2]], [[1, 1], [3, 2]], [[0, 1], [4, 2]], [[4, 2], [5, 2]], [[1, 1], [2, 2]], [[0, 1], [5, 2]], [[2, 2], [4, 2]], [[0, 1], [3, 2]], [[1, 1], [4, 2]], [[0, 1], [1, 1]], [[2, 2], [5, 2]], [[2, 2], [3, 2]], [[1, 1], [5, 2]], [[0, 1], [2, 2]]], "chain": [[0, 1], [1, 1], [2, 2], [3, 2], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "26", "ANS", "7"]}, "4": {"seq_len": 4, "n_layers": 6, "nodes": [[1, 2], [4, 2], [0, 2], [2, 2], [3, 2], [5, 2]], "edges": [[[3, 2], [4, 2]], [[3, 2], [5, 2]], [[1, 2], [4, 2]], [[0, 2], [4, 2]], [[0, 2], [1, 2]], [[4, 2], [5, 2]], [[2, 2], [4, 2]], [[1, 2], [3, 2]], [[0, 2], [3, 2]], [[2, 2], [5, 2]], [[2, 2], [3, 2]], [[1, 2], [2, 2]], [[0, 2], [2, 2]]], "chain": [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "5", "ANS", "31"]}, "6": {"seq_len": 4, "n_layers": 6, "nodes": [[0, 1], [1, 1], [4, 2], [2, 2], [3, 2], [5, 2]], "edges": [[[3, 2], [4, 2]], [[1, 1], [3, 2]], [[3, 2], [5, 2]], [[0, 1], [4, 2]], [[4, 2], [5, 2]], [[2, 2], [4, 2]], [[0, 1], [5, 2]], [[0, 1], [3, 2]], [[0, 1], [1, 1]], [[1, 1], [4, 2]], [[2, 2], [5, 2]], [[2, 2], [3, 2]], [[1, 1], [5, 2]], [[0, 1], [2, 2]]], "chain": [[0, 1], [1, 1], [3, 2], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "3", "ANS", "3"]}, "8": {"seq_len": 4, "n_layers": 6, "nodes": [[0, 1], [1, 1], [4, 2], [5, 2]], "edges": [[[0, 1], [4, 2]], [[4, 2], [5, 2]], [[0, 1], [1, 1]], [[1, 1], [4, 2]], [[1, 1], [5, 2]]], "chain": [[0, 1], [1, 1], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "16", "ANS", "16"]}, "10": {"seq_len": 4, "n_layers": 6, "nodes": [[0, 1], [1, 2], [1, 1], [4, 2], [0, 2], [2, 2], [3, 2], [5, 2]], "edges": [[[3, 2], [5, 2]], [[0, 1], [4, 2]], [[2, 2], [4, 2]], [[0, 1], [3, 2]], [[2, 2], [3, 2]], [[3, 2], [4, 2]], [[4, 2], [5, 2]], [[1, 2], [2, 2]], [[1, 1], [5, 2]], [[1, 2], [5, 2]], [[0, 1], [1, 1]], [[1, 1], [4, 2]], [[0, 1], [2, 2]], [[1, 1], [3, 2]], [[1, 2], [4, 2]], [[0, 2], [1, 2]], [[0, 2], [5, 2]], [[0, 1], [5, 2]], [[2, 2], [5, 2]]], "chain": [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2]], "faithfulness": 1.0, "tokens": ["BOS", "5", "ANS", "9"]}}, "primary": {"1-zero": {"seq_len": 6, "n_layers": 6, "nodes": [[4, 4], [2, 4], [3, 4], [5, 4], [1, 3]], "edges": [[[2, 4], [3, 4]], [[1, 3], [4, 4]], [[1, 3], [5, 4]], [[4, 4], [5, 4]], [[3, 4], [4, 4]], [[3, 4], [5, 4]], [[1, 3], [3, 4]], [[2, 4], [4, 4]], [[2, 4], [5, 4]], [[1, 3], [2, 4]]], "chain": [[1, 3], [2, 4], [3, 4], [4, 4], [5, 4]], "faithfulness": 1.0, "tokens": ["BOS", "25", "SEP", "11", "ANS", "26"]}, "2-full": {"seq_len": 9, "n_layers": 6, "nodes": [[2, 7], [3, 7], [5, 7], [0, 6], [4, 7]], "edges": [[[0, 6], [3, 7]], [[2, 7], [3, 7]], [[4, 7], [5, 7]], [[0, 6], [4, 7]], [[0, 6], [5, 7]], [[3, 7], [4, 7]], [[3, 7], [5, 7]], [[2, 7], [4, 7]], [[2, 7], [5, 7]], [[0, 6], [2, 7]]], "chain": [[0, 6], [2, 7], [3, 7], [4, 7], [5, 7]], "faithfulness": 1.0, "tokens": ["BOS", "14", "SEP", "6", "7", "MID", "7", "ANS", "21"]}, "2-partial": {"seq_len": 9, "n_layers": 6, "nodes": [[2, 7], [3, 7], [5, 7], [0, 6], [4, 7]], "edges": [[[0, 6], [3, 7]], [[2, 7], [3, 7]], [[4, 7], [5, 7]], [[0, 6], [4, 7]], [[0, 6], [5, 7]], [[3, 7], [4, 7]], [[3, 7], [5, 7]], [[2, 7], [4, 7]], [[2, 7], [5, 7]], [[0, 6], [2, 7]]], "chain": [[0, 6], [2, 7], [3, 7], [4, 7], [5, 7]], "faithfulness": 1.0, "tokens": ["BOS", "14", "SEP", "6", "7", "MID", "7", "ANS", "21"]}, "6-partial": {"seq_len": 15, "n_layers": 6, "nodes": [[4, 13], [2, 13], [5, 13], [0, 12], [3, 13], [1, 13]], "edges": [[[4, 13], [5, 13]], [[2, 13], [4, 13]], [[2, 13], [5, 13]], [[3, 13], [4, 13]], [[3, 13], [5, 13]], [[1, 13], [3, 13]], [[0, 12], [3, 13]], [[1, 13], [2, 13]], [[2, 13], [3, 13]], [[0, 12], [2, 13]], [[1, 13], [4, 13]], [[1, 13], [5, 13]], [[0, 12], [4, 13]], [[0, 12], [5, 13]], [[0, 12], [1, 13]]], "chain": [[0, 12], [1, 13], [2, 13], [3, 13], [4, 13], [5, 13]], "faithfulness": 1.0, "tokens": ["BOS", "28", "SEP", "1", "21", "20", "5", "3", "19", "MID", "31", "26", "22", "ANS", "15"]}}};
+
+const familySel = document.getElementById('family');
+const cellSel = document.getElementById('cell');
+const stat = document.getElementById('stat');
+const svg = document.getElementById('canvas');
+
+function populateCells() {
+  const family = familySel.value;
+  const keys = Object.keys(DATA[family]);
+  cellSel.innerHTML = keys.map(k => `<option value="${k}">${family === 'control' ? 'k=' + k : k}</option>`).join('');
+}
+
+function render() {
+  const family = familySel.value;
+  const key = cellSel.value;
+  const ex = DATA[family][key];
+  if (!ex) return;
+
+  const seqLen = ex.seq_len, nLayers = ex.n_layers;
+  const marginL = 40, marginT = 20, marginB = 70, marginR = 20;
+  const cellW = Math.max(28, Math.min(46, 800 / seqLen));
+  const cellH = 46;
+  const width = marginL + cellW * seqLen + marginR;
+  const height = marginT + cellH * nLayers + marginB;
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+
+  const x = pos => marginL + pos * cellW + cellW / 2;
+  const y = layer => marginT + layer * cellH + cellH / 2;
+
+  const chainSet = new Set(ex.chain.map(n => n.join(',')));
+  const chainEdges = new Set();
+  for (let i = 0; i < ex.chain.length - 1; i++) {
+    chainEdges.add(ex.chain[i].join(',') + '>' + ex.chain[i+1].join(','));
+  }
+
+  let svgParts = [];
+
+  // token labels
+  ex.tokens.forEach((t, i) => {
+    svgParts.push(`<text class="tok" x="${x(i)}" y="${marginT + cellH*nLayers + 16}" text-anchor="end" transform="rotate(-90 ${x(i)} ${marginT + cellH*nLayers + 16})">${t}</text>`);
+  });
+
+  // edges
+  for (const [src, dst] of ex.edges) {
+    const isChain = chainEdges.has(src.join(',') + '>' + dst.join(','));
+    const x1 = x(src[1]), y1 = y(src[0]), x2 = x(dst[1]), y2 = y(dst[0]);
+    const mx = (x1 + x2) / 2 + 24;
+    svgParts.push(`<path class="edge ${isChain ? 'chain' : ''}" d="M ${x1} ${y1} Q ${mx} ${(y1+y2)/2} ${x2} ${y2}" />`);
+  }
+
+  // nodes
+  for (const n of ex.nodes) {
+    const isChain = chainSet.has(n.join(','));
+    svgParts.push(`<circle class="node ${isChain ? 'chain' : 'off'}" cx="${x(n[1])}" cy="${y(n[0])}" r="${isChain ? 8 : 5.5}" />`);
+  }
+
+  // layer labels
+  for (let l = 0; l < nLayers; l++) {
+    svgParts.push(`<text class="tok" x="${marginL - 10}" y="${y(l) + 4}" text-anchor="end">${l}</text>`);
+  }
+
+  svg.innerHTML = svgParts.join('\n');
+
+  stat.innerHTML = `
+    <div><b>MNPC-depth:</b> ${ex.chain.length}</div>
+    <div><b>necessary sites:</b> ${ex.nodes.length}</div>
+    <div><b>subgraph faithfulness:</b> ${(ex.faithfulness * 100).toFixed(0)}%</div>
+    <div><b>sequence length:</b> ${seqLen} tokens</div>
+    <div><b>layers:</b> ${nLayers}</div>
+  `;
+}
+
+familySel.addEventListener('change', () => { populateCells(); render(); });
+cellSel.addEventListener('change', render);
+
+populateCells();
+render();
+</script>
+</body>
+</html>
