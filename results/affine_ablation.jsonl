@@ -1,0 +1,4 @@
+{"t_hops": 2, "tag": "primary_affine_k2_zero", "accuracy": 0.017578125, "elapsed_sec": 890.5418303012848}
+{"t_hops": 4, "tag": "primary_affine_k4_zero", "accuracy": 0.037109375, "elapsed_sec": 1026.36776804924}
+{"t_hops": 6, "tag": "primary_affine_k6_zero", "accuracy": 0.046875, "elapsed_sec": 1935.7123384475708}
+{"t_hops": 10, "tag": "primary_affine_k10_zero", "accuracy": 0.037109375, "elapsed_sec": 1053.9512314796448}

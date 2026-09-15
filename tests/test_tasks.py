@@ -25,10 +25,38 @@ def test_bijections_are_actual_bijections():
     m = 32
     pi = tasks.make_fixed_permutation(seed=0, m=m)
     s = tasks.make_substitution_bijection(seed=0, m=m)
+    affine = tasks.make_affine_bijection(seed=0, m=m)
     assert sorted(pi.tolist()) == list(range(m))
     assert sorted(s.tolist()) == list(range(m))
-    # the two must not accidentally be identical (different seeds offset)
+    assert sorted(affine.tolist()) == list(range(m))
+    # the three must not accidentally coincide (different seed offsets)
     assert not np.array_equal(pi, s)
+    assert not np.array_equal(pi, affine)
+    assert not np.array_equal(s, affine)
+
+
+def test_affine_bijection_is_actually_affine():
+    m = 32
+    for seed in range(10):
+        affine = tasks.make_affine_bijection(seed=seed, m=m)
+        # recover (a, b) from the first two outputs and check every other output agrees
+        b = int(affine[0])
+        a = (int(affine[1]) - b) % m
+        for x in range(m):
+            assert affine[x] == (a * x + b) % m
+
+
+def test_affine_bijection_composes_to_another_affine_map():
+    m = 32
+    affine = tasks.make_affine_bijection(seed=7, m=m)
+    b = int(affine[0])
+    a = (int(affine[1]) - b) % m
+    composed_twice = affine[affine]
+    # applying the recovered (a, b) formula twice must match actual double application
+    for x in range(m):
+        once = (a * x + b) % m
+        twice = (a * once + b) % m
+        assert composed_twice[x] == twice
 
 
 def test_primary_trajectory_matches_brute_force():

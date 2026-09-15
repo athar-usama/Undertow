@@ -12,6 +12,7 @@ import numpy as np
 import torch
 
 from undertow import tasks
+from undertow.graph import longest_path
 from undertow.model import ModelConfig, TinyTransformer
 from undertow.patch import build_graph, effect_sizes, subgraph_faithfulness
 from undertow.viz import token_labels
@@ -42,29 +43,6 @@ def load_model(tag: str, seq_len: int) -> TinyTransformer:
     return model
 
 
-def longest_chain(graph) -> list[tuple[int, int]]:
-    preds = {n: [] for n in graph.nodes}
-    for s, d in graph.edges:
-        preds[d].append(s)
-    dp, pred_of = {}, {}
-    for node in sorted(graph.nodes, key=lambda s: s[0]):
-        best_pred, best_len = None, 0
-        for p in preds[node]:
-            if dp[p] > best_len:
-                best_len, best_pred = dp[p], p
-        dp[node] = 1 + best_len
-        pred_of[node] = best_pred
-    if not dp:
-        return []
-    end = max(dp, key=dp.get)
-    chain = []
-    while end is not None:
-        chain.append(end)
-        end = pred_of[end]
-    chain.reverse()
-    return chain
-
-
 def example_payload(task_type: str, t_hops: int, cot_budget: str) -> dict:
     bijection = tasks.make_substitution_bijection(seed=BIJECTION_SEED, m=M)
     permutation = tasks.make_fixed_permutation(seed=PERMUTATION_SEED, m=M)
@@ -89,7 +67,7 @@ def example_payload(task_type: str, t_hops: int, cot_budget: str) -> dict:
     faithfulness = subgraph_faithfulness(
         model, clean_tokens, corrupted_tokens, graph.nodes, clean.answer_pos, clean_answer_token
     )
-    chain = longest_chain(graph)
+    chain = longest_path(graph)
     labels = token_labels(clean.tokens[:-1], clean.answer_pos)
 
     return {

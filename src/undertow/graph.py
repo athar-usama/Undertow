@@ -36,21 +36,37 @@ def necessary_sites(effect_sizes: dict[Site, float], tau: float) -> set[Site]:
     return {site for site, effect in effect_sizes.items() if effect >= tau}
 
 
-def longest_path_length(graph: CausalGraph) -> int:
-    """Number of nodes on the longest directed path in `graph`. A graph with no edges
-    but at least one node has depth 1 (a single necessary site, no serial dependency
-    between distinct sites); an empty graph has depth 0."""
+def longest_path(graph: CausalGraph) -> list[Site]:
+    """The longest directed path in `graph`, as an ordered list of sites from its
+    earliest layer to its latest. Empty if the graph has no nodes."""
     if not graph.nodes:
-        return 0
+        return []
 
     preds: dict[Site, list[Site]] = {n: [] for n in graph.nodes}
     for src, dst in graph.edges:
         preds[dst].append(src)
 
     dp: dict[Site, int] = {}
+    back: dict[Site, Site | None] = {}
     for node in sorted(graph.nodes, key=lambda s: s[0]):
-        if preds[node]:
-            dp[node] = 1 + max(dp[p] for p in preds[node])
-        else:
-            dp[node] = 1
-    return max(dp.values())
+        best_pred, best_len = None, 0
+        for p in preds[node]:
+            if dp[p] > best_len:
+                best_len, best_pred = dp[p], p
+        dp[node] = 1 + best_len
+        back[node] = best_pred
+
+    end = max(dp, key=dp.get)
+    chain: list[Site] = []
+    while end is not None:
+        chain.append(end)
+        end = back[end]
+    chain.reverse()
+    return chain
+
+
+def longest_path_length(graph: CausalGraph) -> int:
+    """Number of nodes on the longest directed path in `graph`. A graph with no edges
+    but at least one node has depth 1 (a single necessary site, no serial dependency
+    between distinct sites); an empty graph has depth 0."""
+    return len(longest_path(graph))

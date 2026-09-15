@@ -2,7 +2,7 @@
 <p align="center"><i>A causal, calibrated instrument for how much serial computation a transformer hides beneath its chain-of-thought.</i></p>
 
 <p align="center">
-  <img src="assets/real_model_accuracy_collapse.png" width="620" alt="Zero-shot accuracy collapses once the model can't show its work">
+  <img src="assets/real_model_accuracy_collapse_qwen2.5-0.5b-instruct.png" width="620" alt="Zero-shot accuracy collapses once the model can't show its work">
 </p>
 
 <p align="center"><sub>Qwen2.5-0.5B-Instruct on the same chained-addition problems, with and without permission to show its work.</sub></p>
@@ -41,6 +41,10 @@ The fix is to close off the shortcut at the level of the data, not the architect
 | Expected outcome | solvable at any depth via a memorized shortcut | genuinely each-step-dependent; no fixed function to memorize |
 
 Everything downstream is run on both tasks side by side, specifically so the control task's success can be checked against what the causal trace says is actually happening, not just assumed away.
+
+**The shortcut isn't hand-waved, it's built and proved.** `src/undertow/binary_lifting.py` implements exponentiation by squaring adapted from integers to permutation composition: precompute pi^1, pi^2, pi^4, pi^8, ... once (each just the previous power composed with itself), then combine only the powers whose bit is set in k's binary representation. `tests/test_binary_lifting.py` checks this against brute-force iteration for 20 random permutations across k up to 63 and every reachable starting state, not a handful of hand-picked cases. Try it directly: [`explorer/shortcut.html`](explorer/shortcut.html) plays both the naive 10-hop chain and the doubling shortcut side by side, using this project's own real control-task permutation, and shows exactly how many operations each one needs for whatever k you type in. This is not a claim that the model learned this specific algorithm; it is a real, checkable demonstration that a bounded-depth way to solve the task exists at all, which is what the flat measured-depth curve below is consistent with.
+
+**Is it really non-affinity, or just having more than one changing input?** `S` is deliberately non-affine because an affine `S` stays closed under composition (`a*(a*x+b)+b` is just `a^2*x + (ab+b)`, i.e. the coefficients combine into a fixed, memorizable set), the same closure property that lets the control task's fixed permutation get shortcut. An ablation isolates the variable directly: swap in an affine `S` (`src/undertow/tasks.py`'s `make_affine_bijection`), keep everything else identical, including a fresh random key every step. `results/affine_ablation.jsonl` reports t_hops in {2, 4, 6, 10}, all sitting at 1.8-4.7% accuracy, indistinguishable from chance, exactly like the non-affine version, and 5x the training steps (20,000) leaves t_hops=2 at 2.7%, ruling out "just needs more steps" the same way it was ruled out for the non-affine wall. Affine composition alone does not reopen the wall. What actually separates the two tasks is that the control task has exactly **one** input that varies per example (`s_0`; the permutation and the hop count are fixed for a given trained model, so gradient descent only ever has to learn a 32-way lookup table), while the primary task's answer always depends on several simultaneously-varying inputs, `s_0` and every key, whether or not a closed form exists for combining them. That is the dividing line the data actually draws.
 
 ## Teaching the ruler to doubt itself
 
@@ -105,60 +109,77 @@ Every cell that *did* converge shows causal depth tracking **required silent dep
 
 Qwen2.5-0.5B-Instruct, unmodified, on chained-addition word problems: plain addition rather than modular arithmetic, so the only difficulty in the task is the multi-step composition this project measures, not a second, unrelated difficulty from the modular reduction itself.
 
-<p align="center"><img src="assets/real_model_opacity_gap.png" width="460"></p>
+<p align="center"><img src="assets/real_model_opacity_gap_qwen2.5-0.5b-instruct.png" width="460"></p>
 
-| k | Zero-shot accuracy (n=40) | Accuracy allowed to show work (n=15) |
-|---|---|---|
-| 2 | 10.0% | 73.3% |
-| 3 | 0.0% | 60.0% |
-| 4 | 2.5% | 53.3% |
+| k | Zero-shot accuracy (n=80) | Accuracy allowed to show work (n=30) | Patched examples | Mean causal depth |
+|---|---|---|---|---|
+| 2 | 15.0% | 76.7% | 12 | 8.7 |
+| 3 | 3.8% | 56.7% | 3 | 8.0 |
+| 4 | 2.5% | 33.3% | 2 | 8.5 |
 
-The model can clearly do this arithmetic (53 to 73% correct given room to write it out) and just as clearly cannot do it silently. Patching only runs on answers the model actually got right, which zero-shot is rare by construction: 4 examples at k=2, 1 at k=4, and **zero at k=3**, reported as zero, not papered over with a smaller claim. On the handful that succeeded, measured causal depth was 3, 8, 10, and 10 (k=2) and 8 (k=4), well beyond the single step a shallow lookup would need, consistent with real hidden multi-step computation on the rare occasions this 0.5B model pulls it off silently, though four and one examples respectively is a case study, not a distribution.
+The model can clearly do this arithmetic given room to write it out, and just as clearly cannot do it silently. Patching only runs on answers the model actually got right, which zero-shot is rare by construction, so the sweep uses an 80-attempt-per-k fixed budget to give even the rarer k=3 and k=4 hits room to surface rather than reporting on a handful of lucky examples. Every one of the 17 patched examples shows a causal depth of 7 to 10, regardless of k, well beyond the single step a shallow lookup would need, and the mean sits in a tight 8.0-8.7 band across k=2/3/4, not a smaller number that would suggest a simple pattern-match.
+
+[`explorer/interrogation-room.html`](explorer/interrogation-room.html) puts every one of those 17 examples in front of you as an actual chat transcript, the model's real prompt and real answer, with a "reveal the trace" button that overlays the exact per-token causal effect directly on the words, then shows the discovered circuit underneath. On the example above, the token that turns out fully necessary (effect 1.0) is not the number the model gets asked about last; it's the second addend, sitting more than 20 tokens before the answer, with a 10-layer chain running from that token straight through to the response.
 
 ## Scope, stated plainly
 
 - The primary-task depth calibration has exactly two distinct x-values (1 and 3). A ρ=0.67 on two points is a real, held-out-stable, honestly-computed correlation; it is not a smooth curve, because a smooth curve was not available to compute it on.
 - 100% faithfulness on every synthetic condition is a real, unmodified output of `subgraph_faithfulness`, and also almost certainly a feature of how small and clean these models and tasks are, not a property this method is shown to have at any other scale.
-- The real-model result is a feasibility demonstration on one 0.5B model on one arithmetic task, not a claim about frontier models. The theoretical motivation is that opacity risk should grow with scale; this project did not test that directly.
+- The affine ablation is one random affine map, one seed, per t_hops; it also survived a 5x training-step check the same way the non-affine wall did, but neither wall has been tested against every possible optimizer or architecture change.
+- 17 patched real-model examples is a case study, not a distribution. The consistent 7-10 depth range across k is a real, honestly-reported pattern, not a large-n statistical claim.
 - "MNPC-depth" is a lower bound constructed from a specific patching/mediation/thresholding pipeline, not a claim about the true minimum circuit depth in any absolute sense.
 
 ## Where everything lives
 
 ```
 src/undertow/
-  tasks.py       primary + control task generators, exact ground truth, hop-level resampling
-  model.py       the tiny transformer (explicit per-layer loop, patchable by construction) + training
-  patch.py       effect sizes, mediation edges, subgraph faithfulness
-  graph.py       necessity thresholding + longest-path (MNPC-depth) extraction
-  realmodel.py   the same cache/patch contract, via forward hooks, for Qwen2.5-0.5B-Instruct
-  viz.py         every figure in this README, rendered from saved results only
+  tasks.py          primary + control + affine task generators, exact ground truth
+  model.py          the tiny transformer (explicit per-layer loop, patchable by construction) + training
+  patch.py          effect sizes, mediation edges, subgraph faithfulness
+  graph.py          necessity thresholding + longest-path (MNPC-depth) extraction
+  binary_lifting.py exponentiation by squaring for permutation composition, proved correct
+  realmodel.py      the same cache/patch contract, via forward hooks, for any HF causal LM
+  viz.py            every figure in this README, rendered from saved results only
 scripts/
-  run_grid.py            trains and checkpoints every synthetic cell this README cites
-  calibrate.py           the tau/top_k search + held-out re-verification
-  real_model_sweep.py    the Qwen phase, checkpointed and resumable
-  summarize_real_model.py, make_figures.py, make_explorer_data.py
-tests/           20 tests: exact ground-truth checks, a hand-built DAG with a known
-                 longest path, and a from-scratch model check that patching the last
-                 layer exactly reproduces the clean logits
-explorer/index.html   see below
+  run_grid.py                trains and checkpoints every synthetic cell this README cites
+  calibrate.py                the tau/top_k search + held-out re-verification
+  affine_ablation.py          the affine-S ablation
+  real_model_sweep.py         zero-CoT phase for any model, checkpointed and resumable
+  real_model_with_reasoning.py  the with-reasoning control condition for any model
+  summarize_real_model.py, make_figures.py, make_explorer_data.py, make_interrogation_room.py
+tests/           26 tests: exact ground-truth checks, a hand-built DAG with a known
+                 longest path, a from-scratch model check that patching the last layer
+                 exactly reproduces the clean logits, and binary lifting checked against
+                 brute force across 20 permutations and every k up to 63
+explorer/
+  index.html               synthetic circuit explorer, see below
+  interrogation-room.html  real-model transcripts with the causal trace overlaid, see below
+  shortcut.html            the binary-lifting shortcut, animated with real permutation data
 ```
 
 ## Poke the circuit yourself
 
-`explorer/index.html` is a single, self-contained file: every discovered circuit in this README, plus a few more, precomputed and embedded as data. No server, no build step, no network calls. Open it directly in a browser and switch between the control and primary examples to see the necessary-site graph and the highlighted longest chain for each one.
+Three self-contained pages, no server, no build step, no network calls once opened:
+
+- [`explorer/index.html`](explorer/index.html): every discovered synthetic circuit in this README, plus a few more, precomputed and embedded as data. Switch between the control and primary examples to see the necessary-site graph and the highlighted longest chain for each one.
+- [`explorer/interrogation-room.html`](explorer/interrogation-room.html): 17 real Qwen transcripts, chat bubbles and all. A "reveal the trace" button overlays the actual per-token causal effect directly on the words the model read, then shows the discovered circuit underneath.
+- [`explorer/shortcut.html`](explorer/shortcut.html): the control task's shortcut, animated. Type any starting value and any k, and watch the naive sequential chain race the doubling shortcut, both computing the exact same answer with this project's real permutation.
 
 ## How to run this end to end
 
 ```
 uv venv .venv && uv pip install -e ".[dev]"
-pytest tests/ -q                     # 20 passed
+pytest tests/ -q                             # 26 passed
 
-python scripts/run_grid.py           # trains + checkpoints all 11 synthetic cells
-python scripts/calibrate.py          # tau/top_k search, held-out re-verification
-python scripts/real_model_sweep.py   # Qwen2.5-0.5B-Instruct phase (downloads the model)
+python scripts/run_grid.py                   # trains + checkpoints all 11 synthetic cells
+python scripts/calibrate.py                  # tau/top_k search, held-out re-verification
+python scripts/affine_ablation.py            # the affine-S ablation
+python scripts/real_model_sweep.py --model Qwen/Qwen2.5-0.5B-Instruct
+python scripts/real_model_with_reasoning.py --model Qwen/Qwen2.5-0.5B-Instruct
 python scripts/summarize_real_model.py
-python scripts/make_figures.py       # every PNG in assets/
-python scripts/make_explorer_data.py # embeds data into explorer/index.html
+python scripts/make_figures.py               # every PNG in assets/
+python scripts/make_explorer_data.py         # embeds data into explorer/index.html
+python scripts/make_interrogation_room.py    # embeds data into explorer/interrogation-room.html
 ```
 
 Every number in this README comes from a file under `results/`, not from a script's console output copied by hand.

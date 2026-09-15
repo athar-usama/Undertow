@@ -78,7 +78,7 @@ def render_causal_graph(
     if token_text is not None:
         ax.set_xticks(range(seq_len))
         ax.set_xticklabels(token_text, rotation=90, fontsize=7)
-    ax.set_title(title, fontsize=11)
+    ax.set_title(title, fontsize=11, wrap=True)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
     fig.tight_layout()
@@ -105,7 +105,7 @@ def render_effect_heatmap(
     if token_text is not None:
         ax.set_xticks(range(seq_len))
         ax.set_xticklabels(token_text, rotation=90, fontsize=7)
-    ax.set_title(title, fontsize=11)
+    ax.set_title(title, fontsize=11, wrap=True)
     fig.colorbar(im, ax=ax, label="patching effect (restores correct answer)", shrink=0.85)
     fig.tight_layout()
     fig.savefig(out_path, dpi=180)
@@ -160,7 +160,7 @@ def render_accuracy_collapse(
     ax.set_xticklabels(["with reasoning", "zero-CoT"])
     ax.set_ylabel("exact-match accuracy")
     ax.set_ylim(-0.03, 1.0)
-    ax.set_title(title, fontsize=11)
+    ax.set_title(title, fontsize=11, wrap=True)
     ax.legend(frameon=False, loc="upper right", fontsize=9)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
@@ -181,7 +181,52 @@ def render_opacity_gap_dotplot(
     ax.set_xticks(ks)
     ax.set_xlabel("chained addition steps k")
     ax.set_ylabel("opacity gap (MNPC-depth - 1)")
-    ax.set_title(title, fontsize=11)
+    ax.set_title(title, fontsize=11, wrap=True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=180)
+    plt.close(fig)
+
+
+def render_scaling_comparison(
+    present: list[tuple[str, str, float]],
+    scaling: dict,
+    out_path: Path,
+    title: str = "Does capability -- and the gap -- grow with scale?",
+) -> None:
+    """One line per k: zero-shot accuracy (solid) and with-reasoning accuracy (dashed)
+    against model parameter count, log-scaled. `present` is [(slug, display_name,
+    params_billions), ...] in size order; `scaling` is the loaded scaling.json."""
+    fig, ax = plt.subplots(figsize=(6.6, 4.8))
+    params = [p for _, _, p in present]
+    all_ks = sorted({int(k) for slug, _, _ in present for k in scaling[slug]["zero_cot_accuracy_by_k"]})
+    palette = ["#c0392b", "#5b7c99", "#a06cd5", "#3f9c6d"]
+
+    for i, k in enumerate(all_ks):
+        color = palette[i % len(palette)]
+        zero = [scaling[slug]["zero_cot_accuracy_by_k"].get(str(k)) for slug, _, _ in present]
+        reason = [
+            scaling[slug].get("with_reasoning_accuracy_by_k", {}).get(str(k)) for slug, _, _ in present
+        ]
+        zx = [p for p, v in zip(params, zero) if v is not None]
+        zy = [v for v in zero if v is not None]
+        rx = [p for p, v in zip(params, reason) if v is not None]
+        ry = [v for v in reason if v is not None]
+        if zy:
+            ax.plot(zx, zy, marker="o", color=color, linewidth=2.0, markersize=7, label=f"k={k}, zero-CoT")
+        if ry:
+            ax.plot(rx, ry, marker="o", color=color, linewidth=1.6, markersize=6,
+                     linestyle="--", alpha=0.55, label=f"k={k}, with reasoning")
+
+    ax.set_xscale("log")
+    ax.set_xticks(params)
+    ax.set_xticklabels([name for _, name, _ in present])
+    ax.set_ylim(-0.03, 1.0)
+    ax.set_xlabel("model size")
+    ax.set_ylabel("exact-match accuracy")
+    ax.set_title(title, fontsize=11, wrap=True)
+    ax.legend(frameon=False, fontsize=8, ncol=2, loc="upper left")
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
     fig.tight_layout()

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Undertow: the shortcut</title>
+<style>
+  :root {
+    --bg: #0b0e13; --panel: #12161d; --line: #232935; --text: #e8ecf1;
+    --muted: #8a97a6; --accent: #d9534f; --accent-soft: #5b7c99; --good: #4fae7d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+    padding: 28px; max-width: 1100px; margin-left: auto; margin-right: auto;
+  }
+  h1 { font-size: 21px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 22px; font-size: 14px; line-height: 1.6; max-width: 760px; }
+  .controls { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; flex-wrap: wrap; }
+  .controls label { font-size: 12px; color: var(--muted); }
+  input[type=number] {
+    background: #1a2029; color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; width: 70px; font-size: 13px;
+  }
+  button {
+    background: var(--accent); color: white; border: none; border-radius: 7px;
+    padding: 9px 18px; font-size: 13px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary { background: #1a2029; border: 1px solid var(--line); color: var(--text); }
+  .lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 820px) { .lanes { grid-template-columns: 1fr; } }
+  .lane {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  }
+  .lane h2 { font-size: 14px; margin: 0 0 4px; }
+  .lane .tally { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 60px; }
+  .node {
+    width: 46px; height: 46px; border-radius: 50%; background: #1a2029; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600;
+    color: var(--muted); transition: all 0.35s ease; flex-shrink: 0;
+  }
+  .node.lit { border-color: var(--accent); color: var(--text); background: #2a1618; transform: scale(1.08); }
+  .node.shortcut-lit { border-color: var(--good); color: var(--text); background: #14261d; transform: scale(1.08); }
+  .arrow { color: var(--line); font-size: 16px; }
+  .power-shelf { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .power-chip {
+    font-size: 11px; padding: 5px 9px; border-radius: 6px; background: #1a2029;
+    border: 1px solid var(--line); color: var(--muted); transition: all 0.3s ease;
+  }
+  .power-chip.used { border-color: var(--good); color: var(--good); }
+  .verdict {
+    margin-top: 16px; padding: 12px 14px; border-radius: 8px; background: #0f1319;
+    font-size: 13px; border-left: 3px solid var(--accent-soft);
+  }
+  .verdict b { color: var(--text); }
+  footer { margin-top: 26px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+</style>
+</head>
+<body>
+<h1>The shortcut, made visible</h1>
+<p class="sub">Undertow's control task trains a model to predict pi^k(s0) for a single fixed permutation pi, zero chain-of-thought. It solves k=10 at 100% accuracy while patching finds a causal chain of only about four necessary steps, far short of ten. This page makes the classical shortcut that gap is consistent with concrete: exponentiation by squaring, adapted from integers to permutation composition, proved correct against brute force for every case in <code>tests/test_binary_lifting.py</code>. It is not a claim that the model learned this exact algorithm, only a real, checkable demonstration that a bounded-depth way to solve the task exists at all.</p>
+
+<div class="controls">
+  <label>s0 <input type="number" id="s0" min="0" max="31" value="17"></label>
+  <label>k <input type="number" id="k" min="1" max="60" value="10"></label>
+  <button id="play">Play both lanes</button>
+  <button class="secondary" id="randomize">Randomize s0</button>
+</div>
+
+<div class="lanes">
+  <div class="lane">
+    <h2>Ten genuine sequential hops</h2>
+    <div class="tally" id="seq-tally">0 of k applied</div>
+    <div class="chain" id="seq-chain"></div>
+  </div>
+  <div class="lane">
+    <h2>The doubling shortcut</h2>
+    <div class="tally" id="fast-tally">precomputed once, reused for every example</div>
+    <div class="power-shelf" id="power-shelf"></div>
+    <div class="chain" id="fast-chain"></div>
+  </div>
+</div>
+
+<div class="verdict" id="verdict"></div>
+
+<footer>
+  Permutation pi is the project's own control-task permutation (seed 456, m=32), so every number above is real, not illustrative. Powers pi^1, pi^2, pi^4, ... are precomputed once by repeated self-composition (<code>pi^(2i) = pi^i[pi^i]</code>) and reused for any s0 and any k up to the size of the shelf built; the one-time cost of building that shelf is amortized across an entire dataset, exactly like a trained model's weights are. At inference time only the powers whose bit is set in k's binary representation are actually applied, see <code>src/undertow/binary_lifting.py</code>.
+</footer>
+
+<script>
+const PI = [25,14,29,8,13,6,22,23,0,7,3,27,11,28,5,10,19,20,31,16,4,26,18,2,30,15,9,21,17,1,24,12];
+
+function compose(f, g) { return f.map(x => g[x]); } // g after f
+function precomputePowers(pi, maxK) {
+  const nTerms = Math.max(1, Math.ceil(Math.log2(maxK + 1)));
+  const powers = [pi.slice()];
+  for (let i = 1; i < nTerms; i++) powers.push(compose(powers[i-1], powers[i-1]));
+  return powers;
+}
+
+const seqChain = document.getElementById('seq-chain');
+const fastChain = document.getElementById('fast-chain');
+const powerShelf = document.getElementById('power-shelf');
+const seqTally = document.getElementById('seq-tally');
+const fastTally = document.getElementById('fast-tally');
+const verdict = document.getElementById('verdict');
+
+function buildSequentialLane(s0, k) {
+  seqChain.innerHTML = '';
+  const nodes = [];
+  let state = s0;
+  const node0 = document.createElement('div');
+  node0.className = 'node';
+  node0.textContent = s0;
+  seqChain.appendChild(node0);
+  nodes.push(node0);
+  for (let i = 0; i < k; i++) {
+    const arrow = document.createElement('div');
+    arrow.className = 'arrow';
+    arrow.textContent = String.fromCharCode(8594);
+    seqChain.appendChild(arrow);
+    state = PI[state];
+    const node = document.createElement('div');
+    node.className = 'node';
+    node.textContent = state;
+    seqChain.appendChild(node);
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+function buildShortcutLane(s0, k) {
+  fastChain.innerHTML = '';
+  powerShelf.innerHTML = '';
+  const powers = precomputePowers(PI, k);
+  const chips = [];
+  powers.forEach((_, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'power-chip';
+    chip.textContent = 'pi^' + (1 << i);
+    powerShelf.appendChild(chip);
+    chips.push(chip);
+  });
+
+  const nodes = [];
+  const node0 = document.createElement('div');
+  node0.className = 'node';
+  node0.textContent = s0;
+  fastChain.appendChild(node0);
+  nodes.push(node0);
+
+  let state = s0;
+  let bit = 0, remaining = k;
+  const steps = [];
+  while (remaining > 0) {
+    if (remaining & 1) {
+      state = powers[bit][state];
+      steps.push({ bit: bit, value: state });
+    }
+    remaining >>= 1;
+    bit++;
+  }
+  steps.forEach(function(step) {
+    const arrow = document.createElement('div');
+    arrow.className = 'arrow';
+    arrow.textContent = String.fromCharCode(8594);
+    fastChain.appendChild(arrow);
+    const node = document.createElement('div');
+    node.className = 'node';
+    node.textContent = step.value;
+    fastChain.appendChild(node);
+    nodes.push({ el: node, chip: chips[step.bit] });
+  });
+  return { nodes: nodes, applied: steps.length, chips: chips };
+}
+
+let seqNodes = [], fastResult = null;
+
+function rebuild() {
+  const s0 = parseInt(document.getElementById('s0').value, 10) || 0;
+  const k = Math.max(1, parseInt(document.getElementById('k').value, 10) || 1);
+  seqNodes = buildSequentialLane(s0, k);
+  fastResult = buildShortcutLane(s0, k);
+  seqTally.textContent = '0 of ' + k + ' applied';
+  fastTally.textContent = 'precomputed once, reused for every example';
+  verdict.innerHTML = '';
+}
+
+async function play() {
+  const k = Math.max(1, parseInt(document.getElementById('k').value, 10) || 1);
+  seqNodes.forEach(function(n) { n.classList.remove('lit'); });
+  fastResult.chips.forEach(function(c) { c.classList.remove('used'); });
+  for (let i = 1; i < seqNodes.length; i++) {
+    await new Promise(function(r) { setTimeout(r, 220); });
+    seqNodes[i].classList.add('lit');
+    seqTally.textContent = i + ' of ' + k + ' applied';
+  }
+  await new Promise(function(r) { setTimeout(r, 300); });
+  for (let i = 1; i < fastResult.nodes.length; i++) {
+    await new Promise(function(r) { setTimeout(r, 420); });
+    const entry = fastResult.nodes[i];
+    entry.el.classList.add('shortcut-lit');
+    entry.chip.classList.add('used');
+    fastTally.textContent = i + ' of ' + fastResult.applied + ' applied at inference time';
+  }
+  const ratio = (fastResult.applied / k * 100).toFixed(0);
+  verdict.innerHTML = '<b>' + k + ' sequential hops</b> vs. <b>' + fastResult.applied +
+    ' applied at inference time</b> (plus a one-time, dataset-wide precompute) -- ' + ratio +
+    '% of the naive step count, computing the exact same answer.';
+}
+
+document.getElementById('play').addEventListener('click', function() { rebuild(); play(); });
+document.getElementById('randomize').addEventListener('click', function() {
+  document.getElementById('s0').value = Math.floor(Math.random() * 32);
+  rebuild();
+});
+document.getElementById('s0').addEventListener('change', rebuild);
+document.getElementById('k').addEventListener('change', rebuild);
+
+rebuild();
+</script>
+</body>
+</html>

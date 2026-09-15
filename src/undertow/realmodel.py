@@ -226,6 +226,19 @@ def random_coeffs(rng: random.Random, k: int, high: int = 9) -> list[int]:
     return [rng.randrange(1, high + 1) for _ in range(k)]
 
 
+def token_display_strings(tokenizer, ids: torch.Tensor) -> list[str]:
+    """The incremental decoded text added at each token position, rather than raw BPE
+    pieces -- legible for a text overlay instead of tokenizer-internal fragments."""
+    id_list = ids[0].tolist()
+    strings = []
+    prev_text = ""
+    for i in range(1, len(id_list) + 1):
+        text = tokenizer.decode(id_list[:i], skip_special_tokens=False)
+        strings.append(text[len(prev_text):])
+        prev_text = text
+    return strings
+
+
 def extract_last_int(text: str) -> int | None:
     matches = re.findall(r"-?\d+", text)
     return int(matches[-1]) if matches else None

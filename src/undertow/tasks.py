@@ -47,6 +47,23 @@ def make_substitution_bijection(seed: int, m: int) -> np.ndarray:
     return rng.permutation(m).astype(np.int64)
 
 
+def make_affine_bijection(seed: int, m: int) -> np.ndarray:
+    """An affine bijection of Z_m (x -> a*x + b mod m, a coprime to m), for the ablation
+    that asks whether it's specifically non-affinity, not merely having a fresh per-step
+    key, that closes off the associative shortcut. Composing this with itself stays
+    affine (a*(a*x+b)+b = a^2*x + (a*b+b), i.e. the coefficients just combine), and the
+    same stays true when a fresh key is added before each application: the whole T-step
+    composition reduces to s_T = a^T*s_0 + sum_i a^(T-i)*(a*k_i+b) mod m, a closed-form
+    linear combination over a fixed, memorizable set of powers of a -- the same kind of
+    shortcut the control task's fixed permutation admits, predicted to reappear here
+    even though every step still takes a fresh input key."""
+    rng = np.random.default_rng(seed + 3_000_017)
+    candidates = [x for x in range(1, m) if np.gcd(x, m) == 1]
+    a = int(rng.choice(candidates))
+    b = int(rng.integers(0, m))
+    return np.array([(a * x + b) % m for x in range(m)], dtype=np.int64)
+
+
 def cot_count(t_hops: int, budget: str) -> int:
     """Number of intermediate states (out of s_1..s_{T-1}) that are verbalized."""
     n_available = max(t_hops - 1, 0)
