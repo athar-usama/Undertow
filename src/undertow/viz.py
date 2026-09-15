@@ -220,6 +220,7 @@ def render_scaling_comparison(
                      linestyle="--", alpha=0.55, label=f"k={k}, with reasoning")
 
     ax.set_xscale("log")
+    ax.minorticks_off()
     ax.set_xticks(params)
     ax.set_xticklabels([name for _, name, _ in present])
     ax.set_ylim(-0.03, 1.0)

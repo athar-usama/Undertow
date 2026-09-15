@@ -119,14 +119,32 @@ Qwen2.5-0.5B-Instruct, unmodified, on chained-addition word problems: plain addi
 
 The model can clearly do this arithmetic given room to write it out, and just as clearly cannot do it silently. Patching only runs on answers the model actually got right, which zero-shot is rare by construction, so the sweep uses an 80-attempt-per-k fixed budget to give even the rarer k=3 and k=4 hits room to surface rather than reporting on a handful of lucky examples. Every one of the 17 patched examples shows a causal depth of 7 to 10, regardless of k, well beyond the single step a shallow lookup would need, and the mean sits in a tight 8.0-8.7 band across k=2/3/4, not a smaller number that would suggest a simple pattern-match.
 
-[`explorer/interrogation-room.html`](explorer/interrogation-room.html) puts every one of those 17 examples in front of you as an actual chat transcript, the model's real prompt and real answer, with a "reveal the trace" button that overlays the exact per-token causal effect directly on the words, then shows the discovered circuit underneath. On the example above, the token that turns out fully necessary (effect 1.0) is not the number the model gets asked about last; it's the second addend, sitting more than 20 tokens before the answer, with a 10-layer chain running from that token straight through to the response.
+[`explorer/interrogation-room.html`](explorer/interrogation-room.html) puts every one of those 17 examples, plus the 1.5B ones from the next section, in front of you as an actual chat transcript, the model's real prompt and real answer, with a "reveal the trace" button that overlays the exact per-token causal effect directly on the words, then shows the discovered circuit underneath. On the example above, the token that turns out fully necessary (effect 1.0) is not the number the model gets asked about last; it's the second addend, sitting more than 20 tokens before the answer, with a 10-layer chain running from that token straight through to the response.
+
+## Bigger model, same interrogation
+
+The same protocol, unchanged, against Qwen2.5-1.5B-Instruct (3x the parameters, 28 layers instead of 24).
+
+<p align="center"><img src="assets/real_model_scaling.png" width="560"></p>
+
+| | k=2 with reasoning | k=2 zero-CoT | k=3 with reasoning | k=3 zero-CoT | k=4 with reasoning | k=4 zero-CoT |
+|---|---|---|---|---|---|---|
+| Qwen2.5-0.5B | 76.7% | 15.0%* | 56.7% | 3.8% | 33.3% | 2.5% |
+| Qwen2.5-1.5B | 100% | 29.4%* | 96.7% | 6.7% | 56.7% | 3.3% |
+
+\* k=2's zero-CoT sweep for both models ran a fixed attempt budget to completion (n=80 for 0.5B, and 1.5B would have too, but its own budget was capped after 5 patchable hits arrived early, so its k=2 figure is computed over only the first 17 attempts, not the full budget, and is not on quite the same footing as the other five cells in this table). k=3 and k=4 ran their full fixed budgets (n=30 each) for both models with no early stop, so those four cells are directly comparable.
+
+3x the parameters buys a large, unambiguous jump in raw capability: with-reasoning accuracy goes from 77/57/33% to 100/97/57%. It does **not** shrink the opacity gap. On the two cleanly-comparable k values, the with-reasoning-minus-zero-CoT gap actually widens with scale: at k=3, 52.9 points (0.5B) versus 90.0 points (1.5B); at k=4, 30.8 points versus 53.4 points. A bigger model here is more capable and, if anything, *more* dependent on being allowed to show its work, not less, exactly the direction the theoretical motivation in the opening section points, on real models rather than only in theory.
+
+Mean causal depth on the handful of zero-CoT hits that *do* get patched: 9.4/8.0/6.0 (1.5B, n=5/2/1) against 8.7/8.0/8.5 (0.5B, n=12/3/2). With one to five examples per cell this is a case study layered on a case study, not a trend line; the honest reading is that depth stays in the same 6-10 range at both scales, without a clean enough signal to say whether it grows, shrinks, or holds steady from here.
 
 ## Scope, stated plainly
 
 - The primary-task depth calibration has exactly two distinct x-values (1 and 3). A ρ=0.67 on two points is a real, held-out-stable, honestly-computed correlation; it is not a smooth curve, because a smooth curve was not available to compute it on.
 - 100% faithfulness on every synthetic condition is a real, unmodified output of `subgraph_faithfulness`, and also almost certainly a feature of how small and clean these models and tasks are, not a property this method is shown to have at any other scale.
 - The affine ablation is one random affine map, one seed, per t_hops; it also survived a 5x training-step check the same way the non-affine wall did, but neither wall has been tested against every possible optimizer or architecture change.
-- 17 patched real-model examples is a case study, not a distribution. The consistent 7-10 depth range across k is a real, honestly-reported pattern, not a large-n statistical claim.
+- 17 patched 0.5B examples and 8 patched 1.5B examples are each a case study, not a distribution. The consistent depth range within each model is a real, honestly-reported pattern, not a large-n statistical claim, and the two-model scaling comparison is two points, not a fitted trend.
+- The 1.5B sweep's k=2 cell stopped early once 5 patchable examples were found (a fixed cost-control measure, since patching costs 3-4x more per example on this model); its zero-CoT accuracy figure is therefore not on the same footing as every other cell in this README, which all ran to a fixed attempt budget with no early stop. This is flagged directly where that number is reported, not just here.
 - "MNPC-depth" is a lower bound constructed from a specific patching/mediation/thresholding pipeline, not a claim about the true minimum circuit depth in any absolute sense.
 
 ## Where everything lives
@@ -162,7 +180,7 @@ explorer/
 Three self-contained pages, no server, no build step, no network calls once opened:
 
 - [`explorer/index.html`](explorer/index.html): every discovered synthetic circuit in this README, plus a few more, precomputed and embedded as data. Switch between the control and primary examples to see the necessary-site graph and the highlighted longest chain for each one.
-- [`explorer/interrogation-room.html`](explorer/interrogation-room.html): 17 real Qwen transcripts, chat bubbles and all. A "reveal the trace" button overlays the actual per-token causal effect directly on the words the model read, then shows the discovered circuit underneath.
+- [`explorer/interrogation-room.html`](explorer/interrogation-room.html): 25 real Qwen transcripts across both model sizes, chat bubbles and all. A "reveal the trace" button overlays the actual per-token causal effect directly on the words the model read, then shows the discovered circuit underneath.
 - [`explorer/shortcut.html`](explorer/shortcut.html): the control task's shortcut, animated. Type any starting value and any k, and watch the naive sequential chain race the doubling shortcut, both computing the exact same answer with this project's real permutation.
 
 ## How to run this end to end
@@ -176,6 +194,8 @@ python scripts/calibrate.py                  # tau/top_k search, held-out re-ver
 python scripts/affine_ablation.py            # the affine-S ablation
 python scripts/real_model_sweep.py --model Qwen/Qwen2.5-0.5B-Instruct
 python scripts/real_model_with_reasoning.py --model Qwen/Qwen2.5-0.5B-Instruct
+python scripts/real_model_sweep.py --model Qwen/Qwen2.5-1.5B-Instruct --attempts-per-k 30 --max-patches-per-k 5
+python scripts/real_model_with_reasoning.py --model Qwen/Qwen2.5-1.5B-Instruct
 python scripts/summarize_real_model.py
 python scripts/make_figures.py               # every PNG in assets/
 python scripts/make_explorer_data.py         # embeds data into explorer/index.html
