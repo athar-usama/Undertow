@@ -212,6 +212,28 @@ async function play() {
     '% of the naive step count, computing the exact same answer.';
 }
 
+function applyFrame(frame) {
+  // Deterministic, animation-free states for offline screenshot capture (see
+  // scripts/capture_gifs.py): 0 = nothing lit, 1 = sequential lane fully lit,
+  // 2 = both lanes lit with the verdict shown.
+  const k = Math.max(1, parseInt(document.getElementById('k').value, 10) || 1);
+  if (frame >= 1) {
+    seqNodes.forEach(function(n) { n.classList.add('lit'); });
+    seqTally.textContent = (seqNodes.length - 1) + ' of ' + k + ' applied';
+  }
+  if (frame >= 2) {
+    for (let i = 1; i < fastResult.nodes.length; i++) {
+      fastResult.nodes[i].el.classList.add('shortcut-lit');
+      fastResult.nodes[i].chip.classList.add('used');
+    }
+    fastTally.textContent = fastResult.applied + ' of ' + fastResult.applied + ' applied at inference time';
+    const ratio = (fastResult.applied / k * 100).toFixed(0);
+    verdict.innerHTML = '<b>' + k + ' sequential hops</b> vs. <b>' + fastResult.applied +
+      ' applied at inference time</b> (plus a one-time, dataset-wide precompute) -- ' + ratio +
+      '% of the naive step count, computing the exact same answer.';
+  }
+}
+
 document.getElementById('play').addEventListener('click', function() { rebuild(); play(); });
 document.getElementById('randomize').addEventListener('click', function() {
   document.getElementById('s0').value = Math.floor(Math.random() * 32);
@@ -221,6 +243,9 @@ document.getElementById('s0').addEventListener('change', rebuild);
 document.getElementById('k').addEventListener('change', rebuild);
 
 rebuild();
+
+const params = new URLSearchParams(window.location.search);
+if (params.has('frame')) applyFrame(parseInt(params.get('frame'), 10) || 0);
 </script>
 </body>
 </html>

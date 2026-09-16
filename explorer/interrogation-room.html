@@ -168,6 +168,16 @@ revealBtn.addEventListener('click', function() {
   render();
 });
 picker.addEventListener('change', render);
+
+// Deterministic state for offline screenshot capture (see scripts/capture_gifs.py):
+// ?example=N picks the example, ?reveal=1 forces the revealed state on load.
+const params = new URLSearchParams(window.location.search);
+if (params.has('example')) picker.value = params.get('example');
+if (params.get('reveal') === '1') {
+  revealed = true;
+  revealBtn.textContent = 'Hide the trace';
+  revealBtn.className = '';
+}
 render();
 </script>
 </body>
