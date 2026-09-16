@@ -6,6 +6,7 @@ stand-ins.
 
 from __future__ import annotations
 
+import textwrap
 from itertools import pairwise
 from pathlib import Path
 
@@ -14,6 +15,20 @@ import numpy as np
 from matplotlib.patches import FancyArrowPatch
 
 from undertow.graph import CausalGraph, Site
+
+
+def set_wrapped_title(fig, ax, title: str, fontsize: int = 11, width: int = 42) -> None:
+    """Wraps `title` to `width` characters with explicit newlines (rather than
+    matplotlib's own `wrap=True`, which measures wrapping at render time after
+    `tight_layout` has already fixed the figure's margins, and reliably clips the top
+    line of anything that wraps to more than one line) and reserves enough headroom
+    for however many lines that produces before the layout is finalized."""
+    lines = textwrap.fill(title, width=width)
+    n_lines = lines.count("\n") + 1
+    ax.set_title(lines, fontsize=fontsize)
+    fig.tight_layout()
+    per_line = 0.045 + fontsize * 0.0022
+    fig.subplots_adjust(top=1.0 - per_line * n_lines)
 
 
 def token_labels(tokens: np.ndarray, answer_pos: int) -> list[str]:
@@ -78,10 +93,9 @@ def render_causal_graph(
     if token_text is not None:
         ax.set_xticks(range(seq_len))
         ax.set_xticklabels(token_text, rotation=90, fontsize=7)
-    ax.set_title(title, fontsize=11, wrap=True)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -105,9 +119,8 @@ def render_effect_heatmap(
     if token_text is not None:
         ax.set_xticks(range(seq_len))
         ax.set_xticklabels(token_text, rotation=90, fontsize=7)
-    ax.set_title(title, fontsize=11, wrap=True)
     fig.colorbar(im, ax=ax, label="patching effect (restores correct answer)", shrink=0.85)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -131,11 +144,10 @@ def render_depth_vs_k(
         ax.plot(ks, vals, marker=marker, color=color, linewidth=2.0, markersize=7, label=name)
     ax.set_xlabel(xlabel)
     ax.set_ylabel("mean MNPC-depth")
-    ax.set_title(title, fontsize=11, wrap=True)
     ax.legend(frameon=False)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -160,11 +172,10 @@ def render_accuracy_collapse(
     ax.set_xticklabels(["with reasoning", "zero-CoT"])
     ax.set_ylabel("exact-match accuracy")
     ax.set_ylim(-0.03, 1.0)
-    ax.set_title(title, fontsize=11, wrap=True)
     ax.legend(frameon=False, loc="upper right", fontsize=9)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -181,10 +192,9 @@ def render_opacity_gap_dotplot(
     ax.set_xticks(ks)
     ax.set_xlabel("chained addition steps k")
     ax.set_ylabel("opacity gap (MNPC-depth - 1)")
-    ax.set_title(title, fontsize=11, wrap=True)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -226,10 +236,9 @@ def render_scaling_comparison(
     ax.set_ylim(-0.03, 1.0)
     ax.set_xlabel("model size")
     ax.set_ylabel("exact-match accuracy")
-    ax.set_title(title, fontsize=11, wrap=True)
     ax.legend(frameon=False, fontsize=8, ncol=2, loc="upper left")
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    fig.tight_layout()
+    set_wrapped_title(fig, ax, title)
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
