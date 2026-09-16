@@ -1,7 +1,7 @@
-"""Renders the three narrative illustrations (building cutaway, iceberg, corkboard),
-all built from the exact same real, patched example (k2_ex7, Qwen2.5-0.5B-Instruct)
-so a reader can recognize the same underlying facts across three different visual
-treatments. Run after real_model_sweep.py has produced that example's record.
+"""Renders the two narrative illustrations (building cutaway, corkboard), both built
+from the exact same real, patched example (k2_ex7, Qwen2.5-0.5B-Instruct) so a reader
+can recognize the same underlying facts across both visual treatments. Run after
+real_model_sweep.py has produced that example's record.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from undertow.illustrations import (
     render_building_cutaway,
     render_circuit_thumbnail,
     render_corkboard,
-    render_iceberg,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,19 +58,6 @@ def main() -> None:
         title="k=2 example: which of 24 floors the answer actually needed",
     )
 
-    n_shown = len(nodes)
-    render_iceberg(
-        tip_label=f'"{rec["generated_text"]}"',
-        tip_caption="the only token anyone outside the model ever sees",
-        deep_caption=f"{n_shown} of {n_layers} layers were causally necessary; none of it was written down",
-        depth_annotations=[
-            (0.05, f"layers {min(l for l,p in nodes if p==exit_pos)}-{max(l for l,p in nodes if p==exit_pos)}: final commit"),
-            (0.85, f"layers {min(l for l,p in nodes if p==entry_pos)}-{max(l for l,p in nodes if p==entry_pos)}: reads the 2nd addend"),
-        ],
-        out_path=ASSETS / "illustration_iceberg.png",
-        title='Undertow: what "16" cost to produce',
-    )
-
     thumb_path = ASSETS / "_corkboard_thumb.png"
     render_circuit_thumbnail(
         nodes=[tuple(n) for n in nodes],
@@ -94,7 +80,7 @@ def main() -> None:
         title="The case file: one silent answer, traced back",
     )
     thumb_path.unlink(missing_ok=True)
-    print("wrote illustration_building.png, illustration_iceberg.png, illustration_corkboard.png")
+    print("wrote illustration_building.png, illustration_corkboard.png")
 
 
 if __name__ == "__main__":

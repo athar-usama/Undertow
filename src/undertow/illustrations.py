@@ -91,59 +91,6 @@ def render_building_cutaway(
     plt.close(fig)
 
 
-def render_iceberg(
-    tip_label: str,
-    tip_caption: str,
-    deep_caption: str,
-    depth_annotations: list[tuple[float, str]],
-    out_path: Path,
-    title: str = "What surfaces, and what stays under",
-) -> None:
-    """A literal iceberg: `tip_label`/`tip_caption` describe what's visible above the
-    waterline (the verbalized answer); `depth_annotations` are (fractional depth in
-    [0, 1], label) pairs pointing at specific bands of the submerged mass."""
-    fig, ax = plt.subplots(figsize=(6.5, 8.0))
-
-    sky = np.linspace(1, 0, 40).reshape(-1, 1)
-    ax.imshow(sky, extent=(-5, 5, 0, 4), aspect="auto", cmap="Blues", vmin=0, vmax=1.4, alpha=0.35, zorder=0)
-    water = np.linspace(0, 1, 200).reshape(-1, 1)
-    ax.imshow(water, extent=(-5, 5, -14, 0), aspect="auto", cmap="Blues", vmin=0.15, vmax=1.05, zorder=0)
-
-    xs = np.linspace(-5, 5, 400)
-    wave = 0.12 * np.sin(xs * 2.4)
-    ax.plot(xs, wave, color="#dfe9f5", linewidth=1.6, zorder=4)
-
-    tip = np.array([(-0.9, 0.0), (0.0, 2.1), (1.0, 0.0)])
-    ax.fill(tip[:, 0], tip[:, 1], color="#eef4fa", edgecolor="#c7d6e6", linewidth=1.2, zorder=3)
-    ax.text(0.0, 2.5, tip_label, ha="center", va="bottom", fontsize=15, color="#eef4fa", fontweight="bold")
-    ax.text(0.0, -0.55, tip_caption, ha="center", va="top", fontsize=9.5, color="#0b0e13",
-             bbox={"boxstyle": "round,pad=0.35", "facecolor": "#eef4fa", "edgecolor": "none", "alpha": 0.92})
-
-    berg = np.array([
-        (-2.6, -0.2), (-1.8, -1.2), (-2.9, -3.5), (-2.0, -6.0), (-3.1, -8.8),
-        (-1.4, -11.6), (0.0, -13.2), (1.6, -11.4), (2.8, -8.6), (1.7, -5.9),
-        (2.9, -3.3), (1.7, -1.1), (2.4, -0.2),
-    ])
-    ax.fill(berg[:, 0], berg[:, 1], color="#c9dcee", edgecolor="#9fb8d1", linewidth=1.4, zorder=2, alpha=0.96)
-
-    for frac, label in depth_annotations:
-        y = -0.4 - frac * 12.6
-        ax.plot([-4.6, -2.4], [y, y], color="#f4c67a", linewidth=1.2, linestyle=":", zorder=5)
-        ax.text(-4.8, y, label, ha="right", va="center", fontsize=9, color="#f4c67a")
-
-    wrapped_caption = textwrap.fill(deep_caption, width=44)
-    ax.text(0, -14.6, wrapped_caption, ha="center", va="top", fontsize=10, color="#5b6472", style="italic")
-
-    ax.set_xlim(-5.2, 5.2)
-    n_caption_lines = wrapped_caption.count("\n") + 1
-    ax.set_ylim(-15.0 - 0.85 * n_caption_lines, 3.6)
-    ax.axis("off")
-    ax.set_title(title, fontsize=13, color="#0b0e13")
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180, facecolor="#eef4fa")
-    plt.close(fig)
-
-
 def render_circuit_thumbnail(
     nodes: list[tuple[int, int]],
     edges: list[tuple[tuple[int, int], tuple[int, int]]],
@@ -193,6 +140,14 @@ def _rotated_rect(ax, xy, width, height, angle_deg, **kwargs):
     return rect
 
 
+def _shadowed_rect(ax, xy, width, height, angle_deg, **kwargs):
+    """A rotated rect with a soft dark offset copy behind it, for a raised-paper look."""
+    shadow_xy = (xy[0] + 0.09, xy[1] - 0.09)
+    _rotated_rect(ax, shadow_xy, width, height, angle_deg, facecolor="#000000",
+                  edgecolor="none", alpha=0.28, zorder=kwargs.get("zorder", 2) - 1)
+    return _rotated_rect(ax, xy, width, height, angle_deg, **kwargs)
+
+
 def render_corkboard(
     prompt_text: str,
     highlighted_word: str,
@@ -203,26 +158,27 @@ def render_corkboard(
 ) -> None:
     """A collaged evidence-board image: a pinned transcript card, a pinned circuit
     thumbnail, a red string between them, and a handwritten-style verdict note."""
-    fig, ax = plt.subplots(figsize=(9, 6.5))
-    ax.set_xlim(0, 9)
-    ax.set_ylim(0, 6.5)
+    fig, ax = plt.subplots(figsize=(11, 8))
+    ax.set_xlim(0, 11)
+    ax.set_ylim(0, 8)
     ax.axis("off")
 
     from scipy.ndimage import gaussian_filter
 
     rng = np.random.default_rng(7)
-    cork = gaussian_filter(rng.uniform(0.0, 1.0, size=(120, 160)), sigma=3.5)
+    cork = gaussian_filter(rng.uniform(0.0, 1.0, size=(160, 220)), sigma=4.0)
     cork = 0.44 + 0.14 * (cork - cork.min()) / (cork.max() - cork.min())
-    ax.imshow(cork, extent=(0, 9, 0, 6.5), cmap="copper", vmin=0.25, vmax=0.62, zorder=0,
+    ax.imshow(cork, extent=(0, 11, 0, 8), cmap="copper", vmin=0.25, vmax=0.62, zorder=0,
               aspect="auto", interpolation="bicubic")
 
-    card1_xy = (0.5, 3.4)
-    _rotated_rect(ax, card1_xy, 3.6, 2.3, -2.5, facecolor="#f4f1e8", edgecolor="#00000022",
-                   linewidth=1.0, zorder=2)
+    card1_xy = (0.6, 4.3)
+    card1_w, card1_h = 4.3, 2.7
+    _shadowed_rect(ax, card1_xy, card1_w, card1_h, -2.5, facecolor="#f4f1e8",
+                   edgecolor="#d8d2c0", linewidth=1.0, zorder=2)
     words = prompt_text.split(" ")
     wrapped, line = [], ""
     for w in words:
-        if len(line) + len(w) > 28:
+        if len(line) + len(w) > 30:
             wrapped.append(line)
             line = w
         else:
@@ -230,40 +186,50 @@ def render_corkboard(
     wrapped.append(line)
     for i, line in enumerate(wrapped):
         segs = line.split(highlighted_word)
-        if len(segs) > 1:
-            ax.text(card1_xy[0] + 0.25, card1_xy[1] + 1.85 - i * 0.34, line,
-                     fontsize=8.6, color="#c0392b", fontweight="bold", zorder=3, rotation=-2.5,
-                     rotation_mode="anchor")
-        else:
-            ax.text(card1_xy[0] + 0.25, card1_xy[1] + 1.85 - i * 0.34, line,
-                     fontsize=8.6, color="#1a1a1a", zorder=3, rotation=-2.5, rotation_mode="anchor")
-    ax.add_patch(Circle((card1_xy[0] + 1.8, card1_xy[1] + 2.15), 0.09, color="#c0392b", zorder=4))
+        color = "#c0392b" if len(segs) > 1 else "#1a1a1a"
+        weight = "bold" if len(segs) > 1 else "normal"
+        ax.text(card1_xy[0] + 0.3, card1_xy[1] + card1_h - 0.5 - i * 0.4, line,
+                 fontsize=10.5, color=color, fontweight=weight, zorder=3, rotation=-2.5,
+                 rotation_mode="anchor")
+    ax.add_patch(Circle((card1_xy[0] + card1_w * 0.5, card1_xy[1] + card1_h - 0.15),
+                        0.11, facecolor="#c0392b", zorder=4, edgecolor="#7a1f18", linewidth=1.0))
 
     thumb = plt.imread(circuit_thumb_path)
-    card2_x0, card2_y0, card2_w, card2_h = 4.9, 2.9, 3.4, 2.9
-    pad = 0.15
-    ax.add_patch(Rectangle((card2_x0, card2_y0), card2_w, card2_h, facecolor="#f4f1e8",
-                            edgecolor="#00000022", linewidth=1.0, zorder=2))
+    card2_x0, card2_y0, card2_w, card2_h = 6.0, 3.7, 4.1, 3.4
+    pad = 0.18
+    _shadowed_rect(ax, (card2_x0, card2_y0), card2_w, card2_h, 0.0, facecolor="#f4f1e8",
+                   edgecolor="#d8d2c0", linewidth=1.0, zorder=2)
     ax.imshow(
         thumb, extent=(card2_x0 + pad, card2_x0 + card2_w - pad,
-                        card2_y0 + pad, card2_y0 + card2_h - pad),
+                        card2_y0 + pad + 0.35, card2_y0 + card2_h - pad),
         zorder=3, aspect="auto",
     )
-    pin2_xy = (card2_x0 + card2_w / 2, card2_y0 + card2_h - 0.05)
-    ax.add_patch(Circle(pin2_xy, 0.09, color="#c0392b", zorder=4))
+    ax.text(card2_x0 + card2_w / 2, card2_y0 + pad + 0.15, "the circuit that explains it",
+             ha="center", va="bottom", fontsize=8.5, color="#5b6472", style="italic", zorder=3)
+    pin2_xy = (card2_x0 + card2_w / 2, card2_y0 + card2_h - 0.18)
+    ax.add_patch(Circle(pin2_xy, 0.11, facecolor="#c0392b", zorder=4, edgecolor="#7a1f18", linewidth=1.0))
 
-    ax.plot([card1_xy[0] + 1.8, pin2_xy[0]], [card1_xy[1] + 2.15, pin2_xy[1]],
-            color="#a4271d", linewidth=1.6, zorder=1, alpha=0.9)
+    string_start = (card1_xy[0] + card1_w * 0.5, card1_xy[1] + card1_h - 0.15)
+    ax.plot([string_start[0], pin2_xy[0]], [string_start[1], pin2_xy[1]],
+            color="#a4271d", linewidth=2.0, zorder=1, alpha=0.9)
 
-    note_xy = (2.4, 0.35)
-    _rotated_rect(ax, note_xy, 4.2, 1.7, 1.2, facecolor="#fff7d6", edgecolor="#00000022",
-                   linewidth=1.0, zorder=2)
-    for i, line in enumerate(verdict_lines):
-        ax.text(note_xy[0] + 0.3, note_xy[1] + 1.35 - i * 0.34, line, fontsize=9.5,
+    note_w = 5.6
+    verdict_wrapped: list[str] = []
+    for raw_line in verdict_lines:
+        verdict_wrapped.extend(textwrap.fill(raw_line, width=52).split("\n"))
+    line_h = 0.42
+    note_h = 0.9 + line_h * len(verdict_wrapped)
+    note_xy = (2.6, 0.4)
+    _shadowed_rect(ax, note_xy, note_w, note_h, 1.2, facecolor="#fff7d6",
+                   edgecolor="#e0d29a", linewidth=1.0, zorder=2)
+    for i, line in enumerate(verdict_wrapped):
+        ax.text(note_xy[0] + 0.35, note_xy[1] + note_h - 0.5 - i * line_h, line, fontsize=10.5,
                  color="#3a2f1a", style="italic", zorder=3, rotation=1.2, rotation_mode="anchor")
-    ax.add_patch(Circle((note_xy[0] + 2.1, note_xy[1] + 1.55), 0.08, color="#c0392b", zorder=4))
+    ax.add_patch(Circle((note_xy[0] + note_w * 0.5, note_xy[1] + note_h - 0.18),
+                        0.1, facecolor="#c0392b", zorder=4, edgecolor="#7a1f18", linewidth=1.0))
 
-    ax.set_title(title, fontsize=14, color="#e8ecf1")
+    ax.set_title(title, fontsize=17, color="#e8ecf1", pad=14)
     fig.patch.set_facecolor("#12161d")
-    fig.savefig(out_path, dpi=180, facecolor="#12161d")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=220, facecolor="#12161d")
     plt.close(fig)

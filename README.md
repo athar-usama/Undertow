@@ -2,10 +2,10 @@
 <p align="center"><i>A causal, calibrated instrument for how much serial computation a transformer hides beneath its chain-of-thought.</i></p>
 
 <p align="center">
-  <img src="assets/illustration_iceberg.png" width="420" alt="An iceberg: the answer '16' visible above the waterline, ten necessary layers submerged beneath it">
+  <img src="assets/shortcut.gif" width="820" alt="Ten sequential hops racing the doubling shortcut, both landing on the same answer">
 </p>
 
-<p align="center"><sub>One real Qwen2.5-0.5B-Instruct answer, traced back through the model that produced it. Every number in the image is measured, not illustrative; see it built from scratch below.</sub></p>
+<p align="center"><sub>Ten genuine sequential hops racing the doubling shortcut this project proves correct, both computing the same answer with a real control-task permutation. Every number in the animation is measured, not illustrative; see it built from scratch below.</sub></p>
 
 ## Say one thing, compute another
 
@@ -44,8 +44,7 @@ Everything downstream is run on both tasks side by side, specifically so the con
 
 **The shortcut isn't hand-waved, it's built and proved.** `src/undertow/binary_lifting.py` implements exponentiation by squaring adapted from integers to permutation composition: precompute pi^1, pi^2, pi^4, pi^8, ... once (each just the previous power composed with itself), then combine only the powers whose bit is set in k's binary representation. `tests/test_binary_lifting.py` checks this against brute-force iteration for 20 random permutations across k up to 63 and every reachable starting state, not a handful of hand-picked cases.
 
-<p align="center"><img src="assets/shortcut.gif" width="560" alt="Ten sequential hops racing the doubling shortcut, both landing on the same answer"></p>
-<p align="center"><sub>Ten genuine sequential hops (left) versus the doubling shortcut (right), both computing pi^10(17) with this project's real control-task permutation. Try it yourself, with any starting value and any k, in <a href="explorer/shortcut.html"><code>explorer/shortcut.html</code></a>.</sub></p>
+The animation at the top of this README, racing those same two lanes to the same answer, is built from exactly this proof. Try it yourself, with any starting value and any k, in [`explorer/shortcut.html`](explorer/shortcut.html).
 
 This is not a claim that the model learned this specific algorithm; it is a real, checkable demonstration that a bounded-depth way to solve the task exists at all, which is what the flat measured-depth curve below is consistent with.
 
@@ -132,10 +131,10 @@ One of those examples, followed all the way through: the prompt is "start at 4, 
 <p align="center"><img src="assets/real_model_opacity_gap_qwen2.5-0.5b-instruct.png" width="440"></p>
 <p align="center"><sub>The same pattern across every patched example: causal depth minus the one step a lookup would need, at every k.</sub></p>
 
-<p align="center"><img src="assets/illustration_corkboard.png" width="620"></p>
+<p align="center"><img src="assets/illustration_corkboard.png" width="720"></p>
 <p align="center"><sub>The same case, filed: the prompt with its necessary word, the circuit that explains the answer, and the verdict, pinned side by side.</sub></p>
 
-<p align="center"><img src="assets/interrogation_room.gif" width="560" alt="Revealing the causal trace over a real Qwen transcript"></p>
+<p align="center"><img src="assets/interrogation_room.gif" width="760" alt="Revealing the causal trace over a real Qwen transcript"></p>
 <p align="center"><sub>The live page: a real chat transcript, the actual per-token effect size overlaid on demand, and the discovered circuit underneath.</sub></p>
 
 [`explorer/interrogation-room.html`](explorer/interrogation-room.html) puts every one of those 17 examples, plus the 1.5B ones from the next section, in front of you the same way, an actual chat transcript with a "reveal the trace" button.
@@ -177,7 +176,7 @@ src/undertow/
   binary_lifting.py exponentiation by squaring for permutation composition, proved correct
   realmodel.py      the same cache/patch contract, via forward hooks, for any HF causal LM
   viz.py            every chart in this README, rendered from saved results only
-  illustrations.py  the building/iceberg/corkboard illustrations, from one real example
+  illustrations.py  the building/corkboard illustrations, from one real example
 scripts/
   run_grid.py                trains and checkpoints every synthetic cell this README cites
   calibrate.py                the tau/top_k search + held-out re-verification
@@ -185,7 +184,7 @@ scripts/
   real_model_sweep.py         zero-CoT phase for any model, checkpointed and resumable
   real_model_with_reasoning.py  the with-reasoning control condition for any model
   summarize_real_model.py, make_figures.py, make_explorer_data.py, make_interrogation_room.py
-  make_illustrations.py       renders the building/iceberg/corkboard images
+  make_illustrations.py       renders the building/corkboard images
   capture_gifs.py             screenshots the two explorer pages into the two GIFs
 tests/           26 tests: exact ground-truth checks, a hand-built DAG with a known
                  longest path, a from-scratch model check that patching the last layer
@@ -222,7 +221,7 @@ python scripts/summarize_real_model.py
 python scripts/make_figures.py               # every PNG in assets/
 python scripts/make_explorer_data.py         # embeds data into explorer/index.html
 python scripts/make_interrogation_room.py    # embeds data into explorer/interrogation-room.html
-python scripts/make_illustrations.py         # the building/iceberg/corkboard images
+python scripts/make_illustrations.py         # the building/corkboard images
 python scripts/capture_gifs.py                # screenshots explorer/*.html into assets/*.gif (needs a local Chrome)
 ```
 
